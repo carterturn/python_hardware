@@ -1,6 +1,9 @@
+from math import sqrt
 import Xlib
 from Xlib import X, display
 from Xlib.ext import randr
+
+INCHES_PER_MILLIMETER = 0.0394
 
 def pnp_to_ascii(pnp):
     return chr(int(pnp, 2) + 64)
@@ -16,21 +19,22 @@ def merge_little_endian_array(array):
     return int(''.join(list(map(lambda x: bin(x)[2:].rjust(8, '0'), array))), 2)
 
 def parse_edid(edid):
-    print("Header: " + str(edid[0:8]) + " "
-	  + ("OK" if edid[0:8] == [0,255,255,255,255,255,255,0] else "Not OK"))
-    print("Manufacturer: " + parse_edid_manufacturer(edid[8:10]))
-    print("Product Code: " + hex(merge_little_endian_array(edid[10:12])))
-    print("Serial Number: " + str(merge_little_endian_array(edid[12:16])))
-    print("Week of Manufacture: " + str(edid[16]))
-    print("Year of Manufacture: " + str(1990 + edid[17]))
-    print("EDID Version: " + str(edid[18]) + "." + str(edid[19]))
-    print("Display parameters: " + str(edid[20:25]))
-    print("Chromaticity coordinates: " + str(edid[25:35]))
-    print("Timing: " + str(edid[35:54]))
-    print("Descriptor 1: " + str(edid[54:72]))
-    print("Descriptor 2: " + str(edid[72:90]))
-    print("Descriptor 3: " + str(edid[90:108]))
-    print("Descriptor 4: " + str(edid[108:126]))
+    edid_data = {}
+    edid_data['header'] = str(edid[0:8])
+    edid_data['manufacturer'] = parse_edid_manufacturer(edid[8:10])
+    edid_data['product code'] = hex(merge_little_endian_array(edid[10:12]))
+    edid_data['serial number'] = str(merge_little_endian_array(edid[12:16]))
+    edid_data['week of manufacture'] = str(edid[16])
+    edid_data['year of manufacture'] = str(1990 + edid[17])
+    edid_data['edid version'] = str(edid[18]) + "." + str(edid[19])
+    edid_data['display parameters'] = str(edid[20:25])
+    edid_data['chromaticity coordinates'] = str(edid[25:35])
+    #edid_data['Timing'] =  " + str(edid[35:54])
+    #edid_data['Descriptor 1'] =  " + str(edid[54:72])
+    #edid_data['Descriptor 2'] =  " + str(edid[72:90])
+    #edid_data['Descriptor 3'] =  " + str(edid[90:108])
+    #edid_data['Descriptor 4'] =  " + str(edid[108:126])
+    return edid_data
 
 display = display.Display()
 window = display.screen().root.create_window(0, 0, 1, 1, 1,
@@ -41,12 +45,8 @@ resources = window.xrandr_get_screen_resources()._data
 for output in resources['outputs']:
     output_info = display.xrandr_get_output_info(output, resources['config_timestamp'])._data
     if output_info['crtc'] != 0:
-        print(output_info['name'] + ' WxH(mm):' + str(output_info['mm_width']) + 'x' + str(output_info['mm_height']))
-        properties = display.xrandr_list_output_properties(output)._data['atoms']
+        size = round(sqrt(output_info['mm_width']**2 + output_info['mm_height']**2) * INCHES_PER_MILLIMETER)
+        edid_data = parse_edid(display.xrandr_get_output_property(output, 81, 0, 0, 128)._data['value'])
 
-        parse_edid(display.xrandr_get_output_property(output, 81, 0, 0, 128)._data['value'])
-	
-        # for property in properties:
-        #     print(property)
-        #     print(display.xrandr_get_output_property(output, property, 0, 0, 128)._data)
+        print(edid_data['manufacturer'] + ' ' + edid_data['year of manufacture'] + ' ' + str(size) + '"')
 
