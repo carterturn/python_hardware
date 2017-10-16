@@ -88,7 +88,7 @@ def _get_display_devices():
     x_display
     try:
         x_display = display.Display(':0')
-    except DisplayNameError e:
+    except DisplayNameError as e:
         return []
     
     x_screen = x_display.screen()
