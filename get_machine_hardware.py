@@ -5,8 +5,10 @@ from math import sqrt
 from collections import namedtuple
 from subprocess import check_output, DEVNULL
 from re import compile, sub
+
 from Xlib import X, display
 from Xlib.ext import randr, xinput
+from Xlib.error import DisplayNameError
 
 Device = namedtuple('Device', ['type', 'vendor', 'name'])
 
@@ -83,7 +85,12 @@ def _merge_little_endian_array(array):
     return int(''.join(list(map(lambda x: bin(x)[2:].rjust(8, '0'), array))), 2)
 
 def _get_display_devices():
-    x_display = display.Display()
+    x_display
+    try:
+        x_display = display.Display(':0')
+    except DisplayNameError e:
+        return []
+    
     x_screen = x_display.screen()
     x_window = x_screen.root.create_window(0, 0, 1, 1, 1, x_screen.root_depth, X.InputOutput, X.CopyFromParent)
 
