@@ -85,38 +85,36 @@ def _merge_little_endian_array(array):
     return int(''.join(list(map(lambda x: bin(x)[2:].rjust(8, '0'), array))), 2)
 
 def _get_display_devices():
-    x_display
     try:
         x_display = display.Display(':0')
+        x_screen = x_display.screen()
+        x_window = x_screen.root.create_window(0, 0, 1, 1, 1, x_screen.root_depth, X.InputOutput, X.CopyFromParent)
+
+        x_resources = x_window.xrandr_get_screen_resources()._data
+
+        monitors = []
+
+        for monitor in x_resources['outputs']:
+            monitor_info = x_display.xrandr_get_output_info(monitor, x_resources['config_timestamp'])._data
+
+            if monitor_info['crtc'] != 0: # This checks if a port is connected
+
+                monitor_width = monitor_info['mm_width'] * INCHES_PER_MILLIMETER
+                monitor_height = monitor_info['mm_height'] * INCHES_PER_MILLIMETER
+                monitor_diagonal = round(sqrt(monitor_width**2 + monitor_height**2))
+
+                edid_data = x_display.xrandr_get_output_property(monitor, 81, 0, 0, 128)._data['value']
+
+                manufacturer = _parse_edid_manufacturer(edid_data[8:10])
+                year_of_manufacture = str(1990 + edid_data[17])
+
+                monitor_name = year_of_manufacture + ' ' + str(monitor_diagonal) + '"'
+
+                monitors.append(Device('Monitor', manufacturer, monitor_name))
+
+        return monitors
     except DisplayNameError as e:
         return []
-    
-    x_screen = x_display.screen()
-    x_window = x_screen.root.create_window(0, 0, 1, 1, 1, x_screen.root_depth, X.InputOutput, X.CopyFromParent)
-
-    x_resources = x_window.xrandr_get_screen_resources()._data
-
-    monitors = []
-
-    for monitor in x_resources['outputs']:
-        monitor_info = x_display.xrandr_get_output_info(monitor, x_resources['config_timestamp'])._data
-
-        if monitor_info['crtc'] != 0: # This checks if a port is connected
-
-            monitor_width = monitor_info['mm_width'] * INCHES_PER_MILLIMETER
-            monitor_height = monitor_info['mm_height'] * INCHES_PER_MILLIMETER
-            monitor_diagonal = round(sqrt(monitor_width**2 + monitor_height**2))
-
-            edid_data = x_display.xrandr_get_output_property(monitor, 81, 0, 0, 128)._data['value']
-
-            manufacturer = _parse_edid_manufacturer(edid_data[8:10])
-            year_of_manufacture = str(1990 + edid_data[17])
-
-            monitor_name = year_of_manufacture + ' ' + str(monitor_diagonal) + '"'
-
-            monitors.append(Device('Monitor', manufacturer, monitor_name))
-
-    return monitors
 
 def _get_usb_devices():
     lsusb_devices_array = check_output(['lsusb', '-v'], stderr=DEVNULL).decode().split("\n\n")
