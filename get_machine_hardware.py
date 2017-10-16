@@ -1,3 +1,6 @@
+#!/usr/bin/python3
+
+from simplejson import JSONEncoder
 from math import sqrt
 from collections import namedtuple
 from subprocess import check_output, DEVNULL
@@ -5,7 +8,7 @@ from re import compile, sub
 from Xlib import X, display
 from Xlib.ext import randr, xinput
 
-Device = namedtuple('Device', ['type', 'vendor', 'name', 'version'])
+Device = namedtuple('Device', ['type', 'vendor', 'name'])
 
 def _get_pci_devices():
     lspci_lines_array = check_output(['lspci', '-nnmm']).decode().splitlines()
@@ -36,7 +39,7 @@ def _get_pci_devices():
             device[string_property] = remove_device_code_regex.sub('', lspci_line[index:end_index])
             index = end_index+1
 
-        devices.append(Device(device['class'], device['vendor'], device['device'], device['rev']))
+        devices.append(Device(device['class'], device['vendor'], device['device']))
     
     return devices
 
@@ -62,7 +65,7 @@ def _get_cpu_devices():
     except KeyError:
         cpu_device = cpu_property_string_list['Model name']
 
-    return [Device('CPU', cpu_vendor, cpu_device, '')]
+    return [Device('CPU', cpu_vendor, cpu_device)]
 
 INCHES_PER_MILLIMETER = 0.0394
 
@@ -104,7 +107,7 @@ def _get_display_devices():
 
             monitor_name = year_of_manufacture + ' ' + str(monitor_diagonal) + '"'
 
-            monitors.append(Device('Monitor', manufacturer, monitor_name, ''))
+            monitors.append(Device('Monitor', manufacturer, monitor_name))
 
     return monitors
 
@@ -131,7 +134,7 @@ def _get_usb_devices():
         if usb_device == '':
             usb_device = lsusb_code_re.sub('', device_property_string_list['bInterfaceProtocol'])            
         
-        usb_devices.append(Device('USB ' + usb_class, usb_vendor, usb_device, ''))
+        usb_devices.append(Device('USB ' + usb_class, usb_vendor, usb_device))
 
     return usb_devices
 
@@ -148,6 +151,11 @@ def get_devices(only_important = True):
     else:
         return _get_pci_devices() + _get_cpu_devices() + _get_display_devices() + get_usb_devices()
 
+def print_devices_encoded():
+    print(JSONEncoder().encode(get_devices()))
+    
 def http_upload_devices():
 
     devices = get_devices()
+
+print_devices_encoded()
