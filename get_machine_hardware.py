@@ -167,5 +167,9 @@ devices_json = get_devices_json()
 
 # Now we will convert it into a format that can easily be compared
 devices_json = devices_json.replace('[', '').replace(']', '').replace('}, ', '}\n')
+# quote readability adjustments
+quote_clean_regex = compile(r'([^\\])"')
+devices_json = quote_clean_regex.sub(r'\1', devices_json)
+devices_json = devices_json.replace(r'\"', '"')
 
 print(devices_json)
