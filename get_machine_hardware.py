@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from simplejson import JSONEncoder
+from yaml import safe_dump
 from math import sqrt
 from collections import namedtuple
 from subprocess import check_output, DEVNULL
@@ -9,8 +9,6 @@ from re import compile, sub
 from Xlib import X, display
 from Xlib.ext import randr, xinput
 from Xlib.error import DisplayNameError
-
-Device = namedtuple('Device', ['type', 'vendor', 'name'])
 
 def _get_pci_devices():
     lspci_lines_array = check_output(['lspci', '-nnmm']).decode().splitlines()
@@ -24,7 +22,7 @@ def _get_pci_devices():
         device['slot'] = lspci_line[0:7]
         index = 7
 
-        first_string_properties = ['class', 'vendor', 'device']
+        first_string_properties = ['class', 'merchant', 'device']
         for string_property in first_string_properties:
             index = lspci_line.find('"', index)+1
             end_index = lspci_line.find('"', index)
@@ -41,14 +39,14 @@ def _get_pci_devices():
             device[string_property] = remove_device_code_regex.sub('', lspci_line[index:end_index])
             index = end_index+1
 
-        devices.append(Device(device['class'], device['vendor'], device['device']))
+        devices.append({'class': device['class'], 'merchant': device['merchant'], 'name': device['device']})
     
     return devices
 
 def _get_important_pci_devices():
     important_pci_classes = ['VGA compatible controller']
 
-    return [x for x in _get_pci_devices() if x.type in important_pci_classes]
+    return [x for x in _get_pci_devices() if x['class'] in important_pci_classes]
     
 
 def _get_cpu_devices():
@@ -67,7 +65,7 @@ def _get_cpu_devices():
     except KeyError:
         cpu_device = cpu_property_string_list['Model name']
 
-    return [Device('CPU', cpu_vendor, cpu_device)]
+    return [{'class': 'CPU', 'merchant': cpu_vendor, 'name': cpu_device}]
 
 INCHES_PER_MILLIMETER = 0.0394
 
@@ -110,7 +108,7 @@ def _get_display_devices():
 
                 monitor_name = year_of_manufacture + ' ' + str(monitor_diagonal) + '"'
 
-                monitors.append(Device('Monitor', manufacturer, monitor_name))
+                monitors.append({'class': 'Monitor', 'merchant': manufacturer, 'name': monitor_name})
 
         return monitors
     except DisplayNameError as e:
@@ -139,14 +137,14 @@ def _get_usb_devices():
         if usb_device == '':
             usb_device = lsusb_code_re.sub('', device_property_string_list['bInterfaceProtocol'])            
         
-        usb_devices.append(Device('USB ' + usb_class, usb_vendor, usb_device))
+        usb_devices.append({'class': 'USB ' + usb_class, 'merchant': usb_vendor, 'name': usb_device})
 
     return usb_devices
 
 def _get_important_usb_devices():
     important_usb_classes = ['USB Human Interface Device', 'USB Mass Storage', 'USB Vendor Specific Class']
 
-    return [x for x in _get_usb_devices() if x.type in important_usb_classes]
+    return [x for x in _get_usb_devices() if x['class'] in important_usb_classes]
 
 def get_devices(only_important = True):
 
@@ -156,16 +154,9 @@ def get_devices(only_important = True):
     else:
         return _get_pci_devices() + _get_cpu_devices() + _get_display_devices() + get_usb_devices()
 
-def get_devices_json():
-    return JSONEncoder().encode(sorted(get_devices()))
-    
-def http_upload_devices():
+def get_devices_yaml():
+    devices = get_devices();
+    devices_sorted = sorted(devices, key=lambda d: d['class']+d['merchant']+d['name'])
+    return safe_dump(devices_sorted, width=1000)
 
-    devices = get_devices()
-
-devices_json = get_devices_json()
-
-# Now we will convert it into a format that can easily be compared
-devices_json = devices_json.replace('[', '').replace(']', '').replace('}, ', '}\n')
-
-print(devices_json)
+print(get_devices_yaml(), end='')
