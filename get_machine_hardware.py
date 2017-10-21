@@ -156,11 +156,16 @@ def get_devices(only_important = True):
     else:
         return _get_pci_devices() + _get_cpu_devices() + _get_display_devices() + get_usb_devices()
 
-def print_devices_encoded():
-    print(JSONEncoder().encode(get_devices()))
+def get_devices_json():
+    return JSONEncoder().encode(sorted(get_devices()))
     
 def http_upload_devices():
 
     devices = get_devices()
 
-print_devices_encoded()
+devices_json = get_devices_json()
+
+# Now we will convert it into a format that can easily be compared
+devices_json = devices_json.replace('[', '').replace(']', '').replace('}, ', '}\n')
+
+print(devices_json)
