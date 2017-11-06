@@ -157,6 +157,7 @@ def get_devices(only_important = True):
 def get_devices_yaml():
     devices = get_devices();
     devices_sorted = sorted(devices, key=lambda d: d['class']+d['merchant']+d['name'])
-    return safe_dump(devices_sorted, width=1000)
+    hostname = check_output('hostname').decode().strip()
+    return safe_dump({'hostname': hostname, 'devices': devices_sorted}, width=1000)
 
 print(get_devices_yaml(), end='')
