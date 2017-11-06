@@ -8,7 +8,7 @@ from re import compile, sub
 
 from Xlib import X, display
 from Xlib.ext import randr, xinput
-from Xlib.error import DisplayNameError
+from Xlib.error import DisplayNameError, DisplayConnectionError
 
 def _get_pci_devices():
     lspci_lines_array = check_output(['lspci', '-nnmm']).decode().splitlines()
@@ -111,7 +111,8 @@ def _get_display_devices():
                 monitors.append({'class': 'Monitor', 'merchant': manufacturer, 'name': monitor_name})
 
         return monitors
-    except DisplayNameError as e:
+    except (DisplayNameError, DisplayConnectionError) as e:
+	# Machine has no displays
         return []
 
 def _get_usb_devices():
