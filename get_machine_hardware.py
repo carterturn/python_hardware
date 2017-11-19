@@ -6,10 +6,6 @@ from collections import namedtuple
 from subprocess import check_output, DEVNULL
 from re import compile, sub
 
-from Xlib import X, display
-from Xlib.ext import randr, xinput
-from Xlib.error import DisplayNameError, DisplayConnectionError
-
 def _get_pci_devices():
     lspci_lines_array = check_output(['lspci', '-nnmm']).decode().splitlines()
 
@@ -67,54 +63,36 @@ def _get_cpu_devices():
 
     return [{'class': 'CPU', 'merchant': cpu_vendor, 'name': cpu_device}]
 
-INCHES_PER_MILLIMETER = 0.0394
-
-def _parse_plug_and_play(plug_and_play_name):
-    return chr(int(plug_and_play_name, 2) + 64)
-
-def _parse_edid_manufacturer(edid_manufacturer):
-    char_one = bin(edid_manufacturer[0])[2:].rjust(8, '0')[1:6]
-    char_two = bin(edid_manufacturer[0])[2:].rjust(8, '0')[6:8] + bin(edid_manufacturer[1])[2:].rjust(8, '0')[0:3]
-    char_three = bin(edid_manufacturer[1])[2:].rjust(8, '0')[3:8]
-    return _parse_plug_and_play(char_one) + _parse_plug_and_play(char_two) + _parse_plug_and_play(char_three)
-
-def _merge_little_endian_array(array):
-    array.reverse()
-    return int(''.join(list(map(lambda x: bin(x)[2:].rjust(8, '0'), array))), 2)
-
 def _get_display_devices():
-    try:
-        x_display = display.Display(':0')
-        x_screen = x_display.screen()
-        x_window = x_screen.root.create_window(0, 0, 1, 1, 1, x_screen.root_depth, X.InputOutput, X.CopyFromParent)
+    DFP_connected = 8 * [False]
+    DFP_types = 8 * ['']
 
-        x_resources = x_window.xrandr_get_screen_resources()._data
+    monitors = []
+    with open('/var/log/Xorg.0.log', 'r') as xorg_logfile:
 
-        monitors = []
+        connection_line_re = compile('connected$')
+        DFP_number_re = compile('DFP-([0-9])')
+        monitor_type_re = compile('\): ([A-Za-z0-9 ]*)\(DFP-')
 
-        for monitor in x_resources['outputs']:
-            monitor_info = x_display.xrandr_get_output_info(monitor, x_resources['config_timestamp'])._data
+        for line in xorg_logfile:
+            line = line.strip()
 
-            if monitor_info['crtc'] != 0: # This checks if a port is connected
+            if connection_line_re.search(line):
+                DFP_number = int(DFP_number_re.search(line).group(1))
+                DFP_connected[DFP_number] = (line.split(' ').pop(-1) == 'connected')
+                if DFP_connected[DFP_number]:
+                    DFP_types[DFP_number] = monitor_type_re.search(line).group(1).strip()
+                else:
+                    DFP_types[DFP_number] = ''
 
-                monitor_width = monitor_info['mm_width'] * INCHES_PER_MILLIMETER
-                monitor_height = monitor_info['mm_height'] * INCHES_PER_MILLIMETER
-                monitor_diagonal = round(sqrt(monitor_width**2 + monitor_height**2))
+    for i in range(0, 8):
+    	if DFP_connected[i]:
+            merchant = DFP_types[i].split(' ').pop(0)
+            name = DFP_types[i].split(' ').pop(1)
+            monitors.append({'class': 'Monitor', 'merchant': merchant, 'name': name})
 
-                edid_data = x_display.xrandr_get_output_property(monitor, 81, 0, 0, 128)._data['value']
-
-                manufacturer = _parse_edid_manufacturer(edid_data[8:10])
-                year_of_manufacture = str(1990 + edid_data[17])
-
-                monitor_name = year_of_manufacture + ' ' + str(monitor_diagonal) + '"'
-
-                monitors.append({'class': 'Monitor', 'merchant': manufacturer, 'name': monitor_name})
-
-        return monitors
-    except (DisplayNameError, DisplayConnectionError) as e:
-	# Machine has no displays
-        return []
-
+    return monitors
+    
 def _get_usb_devices():
     lsusb_devices_array = check_output(['lsusb', '-v'], stderr=DEVNULL).decode().split("\n\n")
     lsusb_devices_array.pop(0) # Remove blank first line
