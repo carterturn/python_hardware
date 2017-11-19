@@ -64,6 +64,8 @@ def _get_cpu_devices():
     return [{'class': 'CPU', 'merchant': cpu_vendor, 'name': cpu_device}]
 
 def _get_display_devices():
+    CRT_connected = False
+    CRT_type = ''
     DFP_connected = 8 * [False]
     DFP_types = 8 * ['']
 
@@ -72,24 +74,36 @@ def _get_display_devices():
 
         connection_line_re = compile('connected$')
         DFP_number_re = compile('DFP-([0-9])')
-        monitor_type_re = compile('\): ([A-Za-z0-9 ]*)\(DFP-')
+        DFP_monitor_type_re = compile('\): ([A-Za-z0-9 ]*)\(DFP-')
+        CRT_monitor_type_re = compile('\): ([A-Za-z0-9 ]*)\(CRT-')
 
         for line in xorg_logfile:
             line = line.strip()
 
             if connection_line_re.search(line):
-                DFP_number = int(DFP_number_re.search(line).group(1))
-                DFP_connected[DFP_number] = (line.split(' ').pop(-1) == 'connected')
-                if DFP_connected[DFP_number]:
-                    DFP_types[DFP_number] = monitor_type_re.search(line).group(1).strip()
+                if "CRT" in line:
+                    CRT_connected = (line.split(' ').pop(-1) == 'connected')
+                    if CRT_connected:
+                        CRT_type = CRT_monitor_type_re.search(line).group(1).strip()
+                    else:
+                        CRT_type = ''
                 else:
-                    DFP_types[DFP_number] = ''
+                    DFP_number = int(DFP_number_re.search(line).group(1))
+                    DFP_connected[DFP_number] = (line.split(' ').pop(-1) == 'connected')
+                    if DFP_connected[DFP_number]:
+                        DFP_types[DFP_number] = DFP_monitor_type_re.search(line).group(1).strip()
+                    else:
+                        DFP_types[DFP_number] = ''
 
     for i in range(0, 8):
     	if DFP_connected[i]:
             merchant = DFP_types[i].split(' ').pop(0)
             name = DFP_types[i].split(' ').pop(1)
             monitors.append({'class': 'Monitor', 'merchant': merchant, 'name': name})
+    if CRT_connected:
+        merchant = CRT_type.split(' ').pop(0)
+        name = CRT_type.split(' ').pop(1)
+        monitors.append({'class': 'Monitor', 'merchant': merchant, 'name': name})
 
     return monitors
     
