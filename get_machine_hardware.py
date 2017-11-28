@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 from re import compile
+from requests import post
 from subprocess import check_output
 from subprocess import DEVNULL
 
@@ -163,5 +164,7 @@ def get_devices_yaml():
     hostname = check_output('hostname').decode().strip()
     return safe_dump({'hostname': hostname, 'devices': devices_sorted}, width=1000)
 
+data = get_devices_yaml()
 
-print(get_devices_yaml(), end='')
+print(data)
+print(post('https://carterturn.com/a/hash/md5', data=data).text)
