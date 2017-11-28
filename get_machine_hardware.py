@@ -167,4 +167,4 @@ def get_devices_yaml():
 data = get_devices_yaml()
 
 print(data)
-print(post('https://carterturn.com/a/hash/md5', data=data).text)
+print(post('https://carterturn.com/fco/hardware', data=data).text)
